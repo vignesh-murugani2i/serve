@@ -39,6 +39,7 @@ public class InferenceImpl extends InferenceAPIsServiceImplBase {
 
     @Override
     public void ping(Empty request, StreamObserver<TorchServeHealthResponse> responseObserver) {
+        logger.info("come to inference grpc call");
         ((ServerCallStreamObserver<TorchServeHealthResponse>) responseObserver)
                 .setOnCancelHandler(
                         () -> {

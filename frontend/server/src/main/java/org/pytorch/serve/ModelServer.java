@@ -113,7 +113,7 @@ public class ModelServer {
 
     public void startAndWait()
             throws InterruptedException, IOException, GeneralSecurityException,
-                    InvalidSnapshotException {
+            InvalidSnapshotException {
         try {
             List<ChannelFuture> channelFutures = startRESTserver();
 
@@ -198,16 +198,16 @@ public class ModelServer {
                                 modelManager.registerModel(file.getName(), defaultModelName);
                         int minWorkers =
                                 configManager.getJsonIntValue(
-                                        archive.getModelName(),
-                                        archive.getModelVersion(),
-                                        Model.MIN_WORKERS,
-                                        workers);
+                                archive.getModelName(),
+                                archive.getModelVersion(),
+                                Model.MIN_WORKERS,
+                                workers);
                         int maxWorkers =
                                 configManager.getJsonIntValue(
-                                        archive.getModelName(),
-                                        archive.getModelVersion(),
-                                        Model.MAX_WORKERS,
-                                        workers);
+                                archive.getModelName(),
+                                archive.getModelVersion(),
+                                Model.MAX_WORKERS,
+                                workers);
                         if (archive.getModelConfig() != null) {
                             int marMinWorkers = archive.getModelConfig().getMinWorkers();
                             int marMaxWorkers = archive.getModelConfig().getMaxWorkers();
@@ -262,29 +262,29 @@ public class ModelServer {
 
                 ModelArchive archive =
                         modelManager.registerModel(
-                                url,
-                                modelName,
-                                null,
-                                null,
-                                1,
-                                100,
-                                configManager.getDefaultResponseTimeout(),
-                                defaultModelName,
-                                false,
-                                false,
-                                false);
+                        url,
+                        modelName,
+                        null,
+                        null,
+                        1,
+                        100,
+                        configManager.getDefaultResponseTimeout(),
+                        defaultModelName,
+                        false,
+                        false,
+                        false);
                 int minWorkers =
                         configManager.getJsonIntValue(
-                                archive.getModelName(),
-                                archive.getModelVersion(),
-                                Model.MIN_WORKERS,
-                                workers);
+                        archive.getModelName(),
+                        archive.getModelVersion(),
+                        Model.MIN_WORKERS,
+                        workers);
                 int maxWorkers =
                         configManager.getJsonIntValue(
-                                archive.getModelName(),
-                                archive.getModelVersion(),
-                                Model.MAX_WORKERS,
-                                workers);
+                        archive.getModelName(),
+                        archive.getModelVersion(),
+                        Model.MAX_WORKERS,
+                        workers);
                 if (archive.getModelConfig() != null) {
                     int marMinWorkers = archive.getModelConfig().getMinWorkers();
                     int marMaxWorkers = archive.getModelConfig().getMaxWorkers();
@@ -355,16 +355,16 @@ public class ModelServer {
         future.addListener(
                 (ChannelFutureListener)
                         f -> {
-                            if (!f.isSuccess()) {
-                                try {
-                                    f.get();
-                                } catch (InterruptedException | ExecutionException e) {
-                                    logger.error("", e);
-                                }
-                                System.exit(-1); // NO PMD
-                            }
-                            serverGroups.registerChannel(f.channel());
-                        });
+                    if (!f.isSuccess()) {
+                        try {
+                            f.get();
+                        } catch (InterruptedException | ExecutionException e) {
+                            logger.error("", e);
+                        }
+                        System.exit(-1); // NO PMD
+                    }
+                    serverGroups.registerChannel(f.channel());
+                });
 
         future.sync();
 
@@ -386,7 +386,7 @@ public class ModelServer {
      */
     public List<ChannelFuture> startRESTserver()
             throws InterruptedException, IOException, GeneralSecurityException,
-                    InvalidSnapshotException {
+            InvalidSnapshotException {
         stopped.set(false);
 
         configManager.validateConfigurations();
@@ -396,18 +396,27 @@ public class ModelServer {
         initModelStore();
 
         Connector inferenceConnector = configManager.getListener(ConnectorType.INFERENCE_CONNECTOR);
-        Connector managementConnector =
-                configManager.getListener(ConnectorType.MANAGEMENT_CONNECTOR);
+        Connector managementConnector = configManager.getListener(ConnectorType.MANAGEMENT_CONNECTOR);
+        Connector opiConnector = configManager.getListener(ConnectorType.OPEN_INFERENCE_CONNECTOR);
 
         inferenceConnector.clean();
         managementConnector.clean();
+        opiConnector.clean();
 
         EventLoopGroup serverGroup = serverGroups.getServerGroup();
         EventLoopGroup workerGroup = serverGroups.getChildGroup();
 
         futures.clear();
 
-        if (!inferenceConnector.equals(managementConnector)) {
+        if (!opiConnector.equals(inferenceConnector)) {
+            futures.add(
+                    initializeServer(
+                        opiConnector,
+                            serverGroup,
+                            workerGroup,
+                            ConnectorType.OPEN_INFERENCE_CONNECTOR));
+
+        } else if (!inferenceConnector.equals(managementConnector)) {
             futures.add(
                     initializeServer(
                             inferenceConnector,
@@ -448,14 +457,13 @@ public class ModelServer {
     }
 
     private Server startGRPCServer(ConnectorType connectorType) throws IOException {
-
-        ServerBuilder<?> s =
-                NettyServerBuilder.forPort(configManager.getGRPCPort(connectorType))
-                        .maxInboundMessageSize(configManager.getMaxRequestSize())
-                        .addService(
-                                ServerInterceptors.intercept(
-                                        GRPCServiceFactory.getgRPCService(connectorType),
-                                        new GRPCInterceptor()));
+        logger.info("Comes to start grpc server >>>>>>>>>>>>>>>>>>>>>>>..");
+        ServerBuilder<?> s = NettyServerBuilder.forPort(configManager.getGRPCPort(connectorType))
+                .maxInboundMessageSize(configManager.getMaxRequestSize())
+                .addService(
+                        ServerInterceptors.intercept(
+                                GRPCServiceFactory.getgRPCService(connectorType),
+                                new GRPCInterceptor()));
 
         if (configManager.isGRPCSSLEnabled()) {
             s.useTransportSecurity(

@@ -53,6 +53,7 @@ public final class ConfigManager {
     // NOTE: Variables which can be configured through environment variables **SHOULD** have a
     // "TS_" prefix
 
+    private static final String OIP_HTTP_ADDRESS = "oip_http_address";
     private static final String TS_DEBUG = "debug";
     private static final String TS_INFERENCE_ADDRESS = "inference_address";
     private static final String TS_MANAGEMENT_ADDRESS = "management_address";
@@ -319,6 +320,9 @@ public final class ConfigManager {
                 break;
             case METRICS_CONNECTOR:
                 binding = prop.getProperty(TS_METRICS_ADDRESS, "http://127.0.0.1:8082");
+                break;
+            case OPEN_INFERENCE_CONNECTOR:
+                binding = prop.getProperty(OIP_HTTP_ADDRESS, "http://127.0.0.1:8080");
                 break;
             default:
                 binding = prop.getProperty(TS_INFERENCE_ADDRESS, "http://127.0.0.1:8080");
