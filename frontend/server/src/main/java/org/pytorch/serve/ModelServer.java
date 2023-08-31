@@ -1,19 +1,5 @@
 package org.pytorch.serve;
 
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
-import io.grpc.ServerInterceptors;
-import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.FixedRecvByteBufAllocator;
-import io.netty.channel.ServerChannel;
-import io.netty.handler.ssl.SslContext;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -27,6 +13,7 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
@@ -58,11 +45,27 @@ import org.pytorch.serve.workflow.WorkflowManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.grpc.Server;
+import io.grpc.ServerBuilder;
+import io.grpc.ServerInterceptors;
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.FixedRecvByteBufAllocator;
+import io.netty.channel.ServerChannel;
+import io.netty.handler.ssl.SslContext;
+import io.netty.util.internal.logging.InternalLoggerFactory;
+import io.netty.util.internal.logging.Slf4JLoggerFactory;
+
 public class ModelServer {
     private Logger logger = LoggerFactory.getLogger(ModelServer.class);
     private ServerGroups serverGroups;
     private Server inferencegRPCServer;
     private Server managementgRPCServer;
+    private Server OIPgRPCServer;
     private List<ChannelFuture> futures = new ArrayList<>(2);
     private AtomicBoolean stopped = new AtomicBoolean(false);
     private ConfigManager configManager;
@@ -397,26 +400,17 @@ public class ModelServer {
 
         Connector inferenceConnector = configManager.getListener(ConnectorType.INFERENCE_CONNECTOR);
         Connector managementConnector = configManager.getListener(ConnectorType.MANAGEMENT_CONNECTOR);
-        Connector opiConnector = configManager.getListener(ConnectorType.OPEN_INFERENCE_CONNECTOR);
 
         inferenceConnector.clean();
         managementConnector.clean();
-        opiConnector.clean();
 
         EventLoopGroup serverGroup = serverGroups.getServerGroup();
         EventLoopGroup workerGroup = serverGroups.getChildGroup();
 
         futures.clear();
 
-        if (!opiConnector.equals(inferenceConnector)) {
-            futures.add(
-                    initializeServer(
-                        opiConnector,
-                            serverGroup,
-                            workerGroup,
-                            ConnectorType.OPEN_INFERENCE_CONNECTOR));
 
-        } else if (!inferenceConnector.equals(managementConnector)) {
+        if (!inferenceConnector.equals(managementConnector)) {
             futures.add(
                     initializeServer(
                             inferenceConnector,
@@ -457,13 +451,21 @@ public class ModelServer {
     }
 
     private Server startGRPCServer(ConnectorType connectorType) throws IOException {
-        logger.info("Comes to start grpc server >>>>>>>>>>>>>>>>>>>>>>>..");
         ServerBuilder<?> s = NettyServerBuilder.forPort(configManager.getGRPCPort(connectorType))
                 .maxInboundMessageSize(configManager.getMaxRequestSize())
                 .addService(
                         ServerInterceptors.intercept(
                                 GRPCServiceFactory.getgRPCService(connectorType),
                                 new GRPCInterceptor()));
+
+        if (connectorType == ConnectorType.INFERENCE_CONNECTOR
+                && ConfigManager.getInstance().isOpenInferenceProtocol()) {
+            s.maxInboundMessageSize(configManager.getMaxRequestSize())
+                    .addService(
+                            ServerInterceptors.intercept(
+                                    GRPCServiceFactory.getgRPCService(ConnectorType.OPEN_INFERENCE_CONNECTOR),
+                                    new GRPCInterceptor()));
+        }
 
         if (configManager.isGRPCSSLEnabled()) {
             s.useTransportSecurity(

@@ -63,8 +63,7 @@ public class OpenInferenceProtocolRequestHandler extends HttpRequestHandlerChain
     private static final String SERVER_READY_API = "/v2/health/ready";
 
     /** Creates a new {@code OpenInferenceProtocolRequestHandler} instance. */
-    public OpenInferenceProtocolRequestHandler(Map<String, ModelServerEndpoint> ep) {
-        endpointMap = ep;
+    public OpenInferenceProtocolRequestHandler() {
     }
 
     @Override
@@ -103,7 +102,7 @@ public class OpenInferenceProtocolRequestHandler extends HttpRequestHandlerChain
             response.add("extenstion", supportedExtensions);
             NettyUtils.sendJsonResponse(ctx, response);
         } else if (segments.length > 5 && concatenatedSegments.contains("/versions")) {
-            // As of now kserve not implemented versioning. we just throws not implemented.
+            // As of now kserve not implemented versioning, we just throws not implemented.
             JsonObject response = new JsonObject();
             response.addProperty("error", "Model versioning not supported yet");
             NettyUtils.sendJsonResponse(ctx, response, HttpResponseStatus.NOT_IMPLEMENTED);

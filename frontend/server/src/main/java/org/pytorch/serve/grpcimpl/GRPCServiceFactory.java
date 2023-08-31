@@ -1,7 +1,8 @@
 package org.pytorch.serve.grpcimpl;
 
-import io.grpc.BindableService;
 import org.pytorch.serve.util.ConnectorType;
+
+import io.grpc.BindableService;
 
 public final class GRPCServiceFactory {
 
@@ -15,6 +16,9 @@ public final class GRPCServiceFactory {
                 break;
             case INFERENCE_CONNECTOR:
                 torchServeService = new InferenceImpl();
+                break;
+            case OPEN_INFERENCE_CONNECTOR:
+                torchServeService = new OpenInferenceProtocolImpl();
                 break;
             default:
                 break;

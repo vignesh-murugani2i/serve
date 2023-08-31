@@ -1,10 +1,5 @@
 package org.pytorch.serve.util;
 
-import com.google.gson.JsonObject;
-import com.google.gson.reflect.TypeToken;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.util.SelfSignedCertificate;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,6 +34,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
@@ -48,12 +44,19 @@ import org.pytorch.serve.snapshot.SnapshotSerializerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
+
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.util.SelfSignedCertificate;
+
 public final class ConfigManager {
     // Variables that can be configured through config.properties and Environment Variables
     // NOTE: Variables which can be configured through environment variables **SHOULD** have a
     // "TS_" prefix
 
-    private static final String OIP_HTTP_ADDRESS = "oip_http_address";
+    private static final String OPEN_INFERENCE_PROTOCOL = "open_inference_protocol";
     private static final String TS_DEBUG = "debug";
     private static final String TS_INFERENCE_ADDRESS = "inference_address";
     private static final String TS_MANAGEMENT_ADDRESS = "management_address";
@@ -128,8 +131,8 @@ public final class ConfigManager {
 
     public static final Pattern ADDRESS_PATTERN =
             Pattern.compile(
-                    "((https|http)://([^:^/]+)(:([0-9]+))?)|(unix:(/.*))",
-                    Pattern.CASE_INSENSITIVE);
+            "((https|http)://([^:^/]+)(:([0-9]+))?)|(unix:(/.*))",
+            Pattern.CASE_INSENSITIVE);
     private static Pattern pattern = Pattern.compile("\\$\\$([^$]+[^$])\\$\\$");
 
     private Pattern blacklistPattern;
@@ -321,9 +324,6 @@ public final class ConfigManager {
             case METRICS_CONNECTOR:
                 binding = prop.getProperty(TS_METRICS_ADDRESS, "http://127.0.0.1:8082");
                 break;
-            case OPEN_INFERENCE_CONNECTOR:
-                binding = prop.getProperty(OIP_HTTP_ADDRESS, "http://127.0.0.1:8080");
-                break;
             default:
                 binding = prop.getProperty(TS_INFERENCE_ADDRESS, "http://127.0.0.1:8080");
         }
@@ -338,6 +338,10 @@ public final class ConfigManager {
             port = prop.getProperty(TS_GRPC_INFERENCE_PORT, "7070");
         }
         return Integer.parseInt(port);
+    }
+
+    public boolean isOpenInferenceProtocol() {
+        return Boolean.parseBoolean(prop.getProperty(OPEN_INFERENCE_PROTOCOL, "false"));
     }
 
     public boolean isGRPCSSLEnabled() {
@@ -392,9 +396,9 @@ public final class ConfigManager {
         if (torchrunLogDir == null) {
             torchrunLogDir =
                     Paths.get(
-                                    getCanonicalPath(System.getProperty("LOG_LOCATION")),
-                                    "torchelastic_ts")
-                            .toString();
+                    getCanonicalPath(System.getProperty("LOG_LOCATION")),
+                    "torchelastic_ts")
+                    .toString();
         }
         return torchrunLogDir;
     }
@@ -511,8 +515,8 @@ public final class ConfigManager {
     public SslContext getSslContext() throws IOException, GeneralSecurityException {
         List<String> supportedCiphers =
                 Arrays.asList(
-                        "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-                        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256");
+                "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+                "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256");
 
         PrivateKey privateKey;
         X509Certificate[] chain;
