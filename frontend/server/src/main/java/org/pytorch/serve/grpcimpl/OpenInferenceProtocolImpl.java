@@ -138,7 +138,15 @@ public class OpenInferenceProtocolImpl extends GRPCInferenceServiceImplBase {
 
     @Override
     public void modelMetadata(ModelMetadataRequest request, StreamObserver<ModelMetadataResponse> responseObserver) {
-
+        ((ServerCallStreamObserver<ModelMetadataResponse>) responseObserver)
+                .setOnCancelHandler(
+                        () -> {
+                            logger.warn("grpc client call already cancelled");
+                            responseObserver.onError(
+                                    io.grpc.Status.CANCELLED
+                                            .withDescription("call already cancelled")
+                                            .asRuntimeException());
+                        });
         String modelName = request.getName();
         String modelVersion = request.getVersion();
         ModelManager modelManager = ModelManager.getInstance();

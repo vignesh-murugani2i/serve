@@ -75,12 +75,8 @@ public class OpenInferenceProtocolRequestHandler extends HttpRequestHandlerChain
             throws ModelException, DownloadArchiveException, WorkflowException,
             WorkerInitializationException {
 
-        logger.info("Handling OIP requests");
         String concatenatedSegments = String.join("/", segments).trim();
-        logger.info("segments {}", (Object) segments);
-
-        logger.info("concatenatedSegments {}", concatenatedSegments);
-
+        logger.info("Handling OIP http requests");
         if (concatenatedSegments.equals(SERVER_READY_API)) {
             // for serve ready check
             JsonObject response = new JsonObject();
