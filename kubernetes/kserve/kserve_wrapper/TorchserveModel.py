@@ -25,7 +25,7 @@ PREDICTOR_URL_FORMAT = PREDICTOR_V2_URL_FORMAT = "http://{0}/predictions/{1}"
 EXPLAINER_URL_FORMAT = EXPLAINER_v2_URL_FORMAT = "http://{0}/explanations/{1}"
 REGISTER_URL_FORMAT = "{0}/models?initial_workers=1&url={1}"
 UNREGISTER_URL_FORMAT = "{0}/models/{1}"
-
+#test serve
 
 class PredictorProtocol(Enum):
     REST_V1 = "v1"
