@@ -353,7 +353,8 @@ public final class ConfigManager {
     }
 
     public boolean isOpenInferenceProtocol() {
-        return Boolean.parseBoolean(prop.getProperty(OPEN_INFERENCE_PROTOCOL, "false"));
+        String inferenceProtocol = System.getenv("INFERENCE_PROTOCOL");
+        return "oip".equals(inferenceProtocol);
     }
 
     public boolean isGRPCSSLEnabled() {
