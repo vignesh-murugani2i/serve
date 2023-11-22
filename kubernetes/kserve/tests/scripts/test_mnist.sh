@@ -12,6 +12,7 @@ function start_minikube_cluster() {
 function install_kserve() {
     echo "Install Kserve"
     cd $GITHUB_WORKSPACE/kserve
+    git checkout release-0.11 
     ./hack/quick_install.sh
     echo "Waiting for Kserve pod to come up ..."
     wait_for_kserve_pod 300 5
@@ -22,7 +23,7 @@ function deploy_cluster() {
     cd $GITHUB_WORKSPACE
     kubectl apply -f "$1"
     echo "Waiting for pod to come up..."
-    wait_for_pod_running "$2" 120
+    wait_for_pod_running "$2" 300
     echo "Check status of the pod"
     kubectl get pods
     kubectl describe pod "$2"
@@ -36,6 +37,7 @@ function make_cluster_accessible() {
     wait_for_port_forwarding 5
     echo "Make inference request"
     PREDICTION=$(curl -H "Content-Type: application/json" -H "Host: ${SERVICE_HOSTNAME}" ${URL} -d @"$3")
+    PREDICTION=$(echo -n "$PREDICTION" | tr -d '\n[:space:]')
     EXPECTED="$4"
     if [ "${PREDICTION}" = "${EXPECTED}" ]; then
         echo "✓ SUCCESS"
@@ -137,5 +139,11 @@ echo "MNIST KServe V1 test begin"
 deploy_cluster "kubernetes/kserve/tests/configs/mnist_v1_cpu.yaml" "torchserve-predictor"
 URL="http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict"
 make_cluster_accessible "torchserve" ${URL} "./kubernetes/kserve/kf_request_json/v1/mnist.json" '{"predictions":[2]}'
+
+echo "MNIST Torchserve Open Inference Protocol HTTP"
+deploy_cluster "kubernetes/kserve/tests/configs/mnist_oip_http.yaml" "torchserve-mnist-v2-http-predictor"
+URL="http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/${MODEL_NAME}/infer"
+EXPECTED_OUTPUT='{"id":"d3b15cad-50a2-4eaf-80ce-8b0a428bd298","model_name":"mnist","model_version":"1.0","outputs":[{"name":"input-0","datatype":"INT64","data":[1],"shape":[1]}]}'
+make_cluster_accessible "torchserve-mnist-v2-http" ${URL} "./kubernetes/kserve/kf_request_json/v2/mnist/mnist_v2_tensor.json" ${EXPECTED_OUTPUT}
 
 delete_minikube_cluster
