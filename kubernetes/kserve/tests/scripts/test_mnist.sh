@@ -41,6 +41,7 @@ function make_cluster_accessible() {
     EXPECTED="$4"
     if [ "${PREDICTION}" = "${EXPECTED}" ]; then
         echo "✓ SUCCESS"
+        kubectl delete inferenceservice ${SERVICE_NAME}
     else
         echo "✘ Test failed: Prediction: ${PREDICTION}, expected ${EXPECTED}."
         delete_minikube_cluster
