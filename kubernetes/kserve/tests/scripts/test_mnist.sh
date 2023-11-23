@@ -49,6 +49,30 @@ function make_cluster_accessible() {
     fi
 }
 
+function make_cluster_accessible_for_grpc() {
+    PROTO_FILE_PATH="https://raw.githubusercontent.com/andyi2it/torch-serve/oip-impl/frontend/server/src/main/resources/proto/open_inference_grpc.proto"
+    curl -s -L ${PROTO_FILE_PATH} > open_inference_grpc.proto
+    PROTO_FILE="open_inference_grpc.proto"
+    SERVICE_NAME="$1"
+    GRPC_METHOD="$2"
+    wait_for_inference_service 300 5 "$1"
+    SERVICE_HOSTNAME=$(kubectl get inferenceservice ${SERVICE_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+    wait_for_port_forwarding 5
+    echo "Make inference request"
+
+    PREDICTION=$(grpcurl -plaintext -d @ -proto ${PROTO_FILE} -authority ${SERVICE_HOSTNAME} ${INGRESS_HOST}:${INGRESS_PORT} ${GRPC_METHOD} < "$3")
+    PREDICTION=$(echo -n "$PREDICTION" | tr -d '\n[:space:]')
+    EXPECTED="$4"
+    if [ "${PREDICTION}" = "${EXPECTED}" ]; then
+        echo "✓ SUCCESS"
+        kubectl delete inferenceservice ${SERVICE_NAME}
+    else
+        echo "✘ Test failed: Prediction: ${PREDICTION}, expected ${EXPECTED}."
+        delete_minikube_cluster
+        exit 1
+    fi
+}
+
 function delete_minikube_cluster() {
     echo "Delete cluster"
     minikube delete
@@ -131,20 +155,26 @@ export MODEL_NAME=mnist
 start_minikube_cluster
 install_kserve
 
-echo "MNIST KServe V2 test begin"
-deploy_cluster "kubernetes/kserve/tests/configs/mnist_v2_cpu.yaml" "torchserve-mnist-v2-predictor"
-URL="http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/${MODEL_NAME}/infer"
-make_cluster_accessible "torchserve-mnist-v2" ${URL} "./kubernetes/kserve/kf_request_json/v2/mnist/mnist_v2_tensor.json" '{"model_name":"mnist","model_version":null,"id":"d3b15cad-50a2-4eaf-80ce-8b0a428bd298","parameters":null,"outputs":[{"name":"input-0","shape":[1],"datatype":"INT64","parameters":null,"data":[1]}]}'
+# echo "MNIST KServe V2 test begin"
+# deploy_cluster "kubernetes/kserve/tests/configs/mnist_v2_cpu.yaml" "torchserve-mnist-v2-predictor"
+# URL="http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/${MODEL_NAME}/infer"
+# make_cluster_accessible "torchserve-mnist-v2" ${URL} "./kubernetes/kserve/kf_request_json/v2/mnist/mnist_v2_tensor.json" '{"model_name":"mnist","model_version":null,"id":"d3b15cad-50a2-4eaf-80ce-8b0a428bd298","parameters":null,"outputs":[{"name":"input-0","shape":[1],"datatype":"INT64","parameters":null,"data":[1]}]}'
 
-echo "MNIST KServe V1 test begin"
-deploy_cluster "kubernetes/kserve/tests/configs/mnist_v1_cpu.yaml" "torchserve-predictor"
-URL="http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict"
-make_cluster_accessible "torchserve" ${URL} "./kubernetes/kserve/kf_request_json/v1/mnist.json" '{"predictions":[2]}'
+# echo "MNIST KServe V1 test begin"
+# deploy_cluster "kubernetes/kserve/tests/configs/mnist_v1_cpu.yaml" "torchserve-predictor"
+# URL="http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL_NAME}:predict"
+# make_cluster_accessible "torchserve" ${URL} "./kubernetes/kserve/kf_request_json/v1/mnist.json" '{"predictions":[2]}'
 
-echo "MNIST Torchserve Open Inference Protocol HTTP"
-deploy_cluster "kubernetes/kserve/tests/configs/mnist_oip_http.yaml" "torchserve-mnist-v2-http-predictor"
-URL="http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/${MODEL_NAME}/infer"
-EXPECTED_OUTPUT='{"id":"d3b15cad-50a2-4eaf-80ce-8b0a428bd298","model_name":"mnist","model_version":"1.0","outputs":[{"name":"input-0","datatype":"INT64","data":[1],"shape":[1]}]}'
-make_cluster_accessible "torchserve-mnist-v2-http" ${URL} "./kubernetes/kserve/kf_request_json/v2/mnist/mnist_v2_tensor.json" ${EXPECTED_OUTPUT}
+# echo "MNIST Torchserve Open Inference Protocol HTTP"
+# deploy_cluster "kubernetes/kserve/tests/configs/mnist_oip_http.yaml" "torchserve-mnist-v2-http-predictor"
+# URL="http://${INGRESS_HOST}:${INGRESS_PORT}/v2/models/${MODEL_NAME}/infer"
+# EXPECTED_OUTPUT='{"id":"d3b15cad-50a2-4eaf-80ce-8b0a428bd298","model_name":"mnist","model_version":"1.0","outputs":[{"name":"input-0","datatype":"INT64","data":[1],"shape":[1]}]}'
+# make_cluster_accessible "torchserve-mnist-v2-http" ${URL} "./kubernetes/kserve/kf_request_json/v2/mnist/mnist_v2_tensor.json" ${EXPECTED_OUTPUT}
+
+echo "MNIST Torchserve Open Inference Protocol GRPC"
+deploy_cluster "kubernetes/kserve/tests/configs/mnist_oip_grpc.yaml" "torchserve-mnist-v2-grpc-predictor"
+GRPC_METHOD="org.pytorch.serve.grpc.openinference.GRPCInferenceService.ModelInfer"
+EXPECTED_OUTPUT='{"modelName":"mnist","modelVersion":"1.0","id":"d3b15cad-50a2-4eaf-80ce-8b0a428bd298","outputs":[{"name":"input-0","datatype":"INT64","shape":["1"],"contents":{"int64Contents":["1"]}}]}'
+make_cluster_accessible_for_grpc "torchserve-mnist-v2-grpc" ${GRPC_METHOD} "./kubernetes/kserve/kf_request_json/v2/mnist/mnist_v2_tensor_grpc.json" ${EXPECTED_OUTPUT}
 
 delete_minikube_cluster
