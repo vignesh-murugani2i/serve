@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   ci-gpu:
-    runs-on: [self-hosted, ci-gpu]
+    runs-on: ubuntu-20.04
     steps:
       - name: Clean up previous run
         run: |
